@@ -48,6 +48,15 @@ public class Player {
 		}
 		return games;
 	}
+	public int getRawGamesPlayed() {
+		int week = 1;
+		int games = 0;
+		while(weekly.get(week) != null){
+			games += weekly.get(week).getGamesPlayed();
+			week++;
+		}
+		return games;
+	}
 
 	/**
 	 * default constructor will give the player the name "default" and a
@@ -173,7 +182,7 @@ public class Player {
 		if(MainView.type == MainView.tType.DELIM){
 			s = getRank() + "," + getTotalPoints() + "," + getName();
 		} else { 
-			double percent = (double)getWins()/getGamesPlayed();
+			double percent = (double)getWins()/getRawGamesPlayed();
 			s = getRank() + "," + getName() + "," + percent + "," + getWins() + "," + getTotalPoints() + "," + getTeamPoints() + "," + getHandicapString();
 		}
 		int week = 1;

@@ -59,7 +59,7 @@ public class WriteExcel {
 					"W14pts" });
 		} else {
 			data.put("2", new Object[] { "Rank", "Player", "Win %",
-					"Games Played", "Points", "Team Points", "Handicap",
+					"Wins", "Points", "Team Points", "Handicap",
 					"W1pts", "W2pts", "W3pts", "W4pts", "W5pts", "W6pts",
 					"W7pts", "W8pts", "W9pts", "W10pts", "W11pts", "W12pts",
 					"W13pts", "W14pts" });

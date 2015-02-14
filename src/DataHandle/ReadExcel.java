@@ -117,8 +117,11 @@ public class ReadExcel {
 											.getBoldweight() == Font.BOLDWEIGHT_BOLD) {
 										tn.setWinner(true);
 									}
-								} else if(cell.getColumnIndex() == 4 && MainView.type == MainView.tType.RRBN){
+								} else if(cell.getColumnIndex() == 5 && MainView.type == MainView.tType.RRBN){
 									player.setTeamPoints((int)cell.getNumericCellValue());
+								}
+								else if(cell.getColumnIndex() == 3 && MainView.type == MainView.tType.RRBN){
+									player.setWins((int)cell.getNumericCellValue());
 								}
 								break;
 							case Cell.CELL_TYPE_STRING:
