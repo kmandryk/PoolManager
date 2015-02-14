@@ -67,4 +67,23 @@ public class Match {
 	public void setWinnerHandicapPoints(int winnerHandicapPoints) {
 		this.winnerHandicapPoints = winnerHandicapPoints;
 	}
+	
+	/**
+	 * Note: This keeps the same player references. Players must be overwritten if
+	 * doing a deep copy
+	 */
+	public static Match copyMatch(Match match){
+		Match newMatch = new Match();
+		newMatch.setByePlayer(match.getByePlayer());
+		newMatch.setLoser(match.getLoser());
+		newMatch.setLoserHandicapPoints(match.getLoserHandicapPoints());
+		newMatch.setLoserScore(match.getLoserScore());
+		newMatch.setPlayerOne(match.getPlayerOne());
+		newMatch.setPlayerTwo(match.getPlayerTwo());
+		newMatch.setWinner(match.getWinner());
+		newMatch.setWinnerHandicapPoints(match.getWinnerHandicapPoints());
+		newMatch.setWinnerScore(match.getWinnerScore());
+		return newMatch;
+		
+	}
 }

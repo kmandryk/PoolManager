@@ -72,16 +72,17 @@ public class TournamentTree {
 		}
 	}
 
-	public void insertPlayers(List<Player> playerList, boolean bottemSideFirst) {
+	public void insertPlayers(List<Player> playerList, boolean bottomSideFirst) {
 		Player p = playerList.get(0);
-		if (bottemSideFirst) {
+		if (bottomSideFirst) {
 			if (addPlayersRecursively(p, root.getRightChild())) {
 				playerList.remove(p);
 			}
 		}
 		while (!playerList.isEmpty()) {
 			p = playerList.get(0);
-			if (addPlayersRecursively(p, root.getLeftChild())) {
+			boolean inserted;
+			if (inserted = addPlayersRecursively(p, root.getLeftChild())) {
 				playerList.remove(p);
 				if (!playerList.isEmpty()) {
 					p = playerList.get(0);
@@ -91,6 +92,8 @@ public class TournamentTree {
 			}
 			if (addPlayersRecursively(p, root.getRightChild())) {
 				playerList.remove(p);
+			} else if (!inserted) {
+				return;
 			}
 		}
 	}
@@ -125,6 +128,21 @@ public class TournamentTree {
 	}
 
 	private boolean newPlayerCorrection(Node<Match> game, Player p) {
+		if (game.getMatch().getByePlayer() != null
+				|| game.getMatch().getWinner() != null 
+				|| game.getParent().getMatch().getWinner() != null) {	// for expanding brackets case
+			return false;
+		}
+		if ((game.getMatch().getPlayerOne() == null)
+				&& (game.getMatch().getPlayerTwo() == null)) {
+			game.getMatch().setPlayerOne(p);
+			return true;
+		}
+		if ((game.getSibling().getMatch().getPlayerOne() == null)
+				&& (game.getSibling().getMatch().getPlayerTwo() == null)) {
+			game.getSibling().getMatch().setPlayerOne(p);
+			return true;
+		}
 		if ((game.getSibling().getMatch().getPlayerOne() != null)
 				&& (game.getSibling().getMatch().getPlayerTwo() != null)) {
 			if (game.getMatch().getPlayerOne() == null) {

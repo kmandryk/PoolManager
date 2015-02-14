@@ -34,6 +34,8 @@ import javax.swing.SpringLayout;
 import javax.swing.SwingUtilities;
 
 import startup.Start;
+import tournament.RobinTournament;
+import tournament.Snapshot;
 import tournament.Tournament;
 import tournament.Tournament.Side;
 import API.Match;
@@ -45,18 +47,27 @@ import DataHandle.WriteExcel;
 
 public class MainView extends JFrame implements ActionListener {
 
+	public static enum tType {
+		DELIM, RRBN
+
+	}
+
 	JFrame frame;
 	JPanel panel;
 	JPanel endPanel;
-	JButton startTourney;
-	JButton importTourney;
+	JButton importDoubleElim;
+	JButton importRoundRobin;
 	JLabel label;
 	JTextArea players;
 	public static Set<Player> eligablePlayers;
 	public static Set<Player> playingPlayers;
 	private int thisWeek;
 	Tournament tournament;
+	RobinTournament rtournament;
+	public static tType type;
+	Snapshot snapshot;
 	Map<String, Node<Match>> buttonToGame;
+	Map<String, Match> rButtonToGame;
 	public static boolean doubles;
 	String bSideMatchConjunctive;
 
@@ -71,55 +82,49 @@ public class MainView extends JFrame implements ActionListener {
 	private static int BUTTON_WIDTH = 200;
 	private static int BUTTON_HEIGHT = 40;
 
-	public enum Source {
-		BUTTON
-	}
-
 	public MainView(int thisWeek) {
 		this.thisWeek = thisWeek;
 		playingPlayers = new HashSet<Player>();
-		buttonToGame = new HashMap<String, Node<Match>>();
+
 		panel = new JPanel();
 		label = new JLabel();
 		getContentPane().add(panel);
 		focusChanger = new KeyListener(this);
 		setButtons();
-		panel.add(startTourney);
-		panel.add(importTourney);
+		panel.add(importDoubleElim);
+		panel.add(importRoundRobin);
 		panel.add(label);
 		setLocationRelativeTo(null);
 	}
 
 	private void setButtons() {
-		startTourney = new JButton("Start Tournament");
-		startTourney.addActionListener(this);
-		startTourney.addKeyListener(focusChanger);
-		startTourney.setVisible(true);
-
-		importTourney = new JButton("Import Tournament");
-		importTourney.addActionListener(this);
-		importTourney.addKeyListener(focusChanger);
-		importTourney.setVisible(true);
+		importDoubleElim = new JButton("Import Double Elimination Tournament");
+		importDoubleElim.addActionListener(this);
+		importDoubleElim.addKeyListener(focusChanger);
+		importDoubleElim.setVisible(true);
+		importRoundRobin = new JButton("Import Round Robin Tournament");
+		importRoundRobin.addActionListener(this);
+		importRoundRobin.addKeyListener(focusChanger);
+		importRoundRobin.setVisible(true);
 	}
 
 	@Override
 	public void actionPerformed(ActionEvent event) {
-		if (event.getSource() == startTourney) {
-			if(Start.file == null || !Start.fileWasRead){
-				new MessageDialog("You must select an xls file for the tournament.");
-			} else{
-			tourneyInitView();
-			}
-		} else if (event.getSource() == importTourney) {
+
+		if (event.getSource() == importDoubleElim
+				|| event.getSource() == importRoundRobin) {
+			type = (event.getSource() == importDoubleElim) ? tType.DELIM
+					: tType.RRBN;
 			FileChooserDialog fcd = new FileChooserDialog();
-			if(Start.file == null){
-				new MessageDialog("You must select an xls file for the tournament.");
-			} else{
-			ReadExcel read = new ReadExcel();
-			MainView.eligablePlayers = read.read();
+			if (Start.file == null) {
+				new MessageDialog(
+						"You must select an xls file for the tournament.");
+			} else {
+				ReadExcel read = new ReadExcel();
+				MainView.eligablePlayers = read.read(type);
+				tourneyInitView();
 			}
 		}
-
 	}
 
 	public void tourneyInitView() {
@@ -178,12 +183,27 @@ public class MainView extends JFrame implements ActionListener {
 					NewPlayersDialog npd = new NewPlayersDialog(newPlayers);
 					npd.setVisible(true);
 					npd.setAlwaysOnTop(true);
-					return;
+
+					if (!npd.isConfirmed()) {
+						return;
+					}
 				}
-				if (tournament == null) {
-					tournament = new Tournament(thisWeek, playingPlayers);
+				if (type == tType.DELIM) {
+					buttonToGame = new HashMap<String, Node<Match>>();
+					if (tournament == null) {
+						tournament = new Tournament(thisWeek, playingPlayers);
+						snapshot = new Snapshot();
+						snapshot.addSnapshot(tournament);
+					}
+					tourneyView();
+				} else {
+					rButtonToGame = new HashMap<String, Match>();
+					if (rtournament == null) {
+						rtournament = new RobinTournament(thisWeek,
+								playingPlayers);
+					}
+					rRobinView();
 				}
-				tourneyView();
 			}
 		});
 
@@ -193,6 +213,60 @@ public class MainView extends JFrame implements ActionListener {
 		setTitle("Tournament Setup");
 		setSize(100, 200);
 		pack();
+	}
+
+	private void rRobinView() {
+		getContentPane().removeAll();
+		SpringLayout layout = new SpringLayout();
+		String buttonName = null;
+		int noOfGames = rtournament.getNoOfGames();
+		if (noOfGames <= 0) {
+			rtournament.reGenGames();
+			noOfGames = rtournament.getNoOfGames();
+		}
+		List<Match> gameList = rtournament.getGamesList();
+
+		JPanel mainPanel = new JPanel();
+		mainPanel.setPreferredSize(new Dimension(1600, 800));
+		mainPanel.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
+		mainPanel.setLayout(layout);
+		setLayout(new BorderLayout());
+		JScrollPane scroll = new JScrollPane(mainPanel,
+				JScrollPane.VERTICAL_SCROLLBAR_ALWAYS,
+				JScrollPane.HORIZONTAL_SCROLLBAR_ALWAYS);
+		scroll.getVerticalScrollBar().setUnitIncrement(15);
+		add(scroll, BorderLayout.CENTER);
+		JLabel aSideLabel = new JLabel("A Side Games");
+		aSideLabel.setFont(new Font(null, Font.BOLD, 20));
+		mainPanel.add(aSideLabel);
+		layout.putConstraint(SpringLayout.WEST, aSideLabel, 10,
+				SpringLayout.WEST, this.getContentPane());
+		layout.putConstraint(SpringLayout.NORTH, aSideLabel, 15,
+				SpringLayout.NORTH, this.getContentPane());
+
+		JPanel aPanel = new JPanel();
+		aPanel.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
+		aPanel.setLayout(new GridLayout(noOfGames, 1, 5, 0));
+		layout.putConstraint(SpringLayout.WEST, aPanel, 5, SpringLayout.WEST,
+				this.getContentPane());
+		layout.putConstraint(SpringLayout.NORTH, aPanel, 20,
+				SpringLayout.NORTH, aSideLabel);
+		mainPanel.add(aPanel);
+		for (int iter = 0; iter < noOfGames; iter++) {
+			buttonName = "<html><p>Round "
+					+ gameList.get(iter).getPlayerOne().getName() + " vs "
+					+ gameList.get(iter).getPlayerTwo().getName()
+					+ "</p></html>";
+			JButton button = new JButton(buttonName);
+			button.addKeyListener(focusChanger);
+			button.addActionListener(new RobinButtonListener());
+			rButtonToGame.put(buttonName, gameList.get(iter));
+			aPanel.add(button);
+		}
+		createEndPanel();
+		setTitle("Round Robin Match Manager");
+		setSize(WIDTH / 2, HEIGHT);
+
 	}
 
 	public void tourneyView() {
@@ -207,261 +281,271 @@ public class MainView extends JFrame implements ActionListener {
 				.getAllPlayableGames();
 		List<Node<Match>> bSidePlayableGames = tournament.getbSide()
 				.getAllPlayableGames();
-
-		if (aSidePlayableGames.isEmpty() && bSidePlayableGames.isEmpty()) {
-			Node<Match> finalGame = tournament.getfinalGame();
-			if (!tournament.isFinished()) {
-				JLabel finalLabel = new JLabel("FINAL GAME");
-				finalLabel.setFont(new Font(null, Font.BOLD, 30));
-				add(finalLabel);
-				layout.putConstraint(SpringLayout.WEST, finalLabel, 10,
-						SpringLayout.WEST, this.getContentPane());
-				layout.putConstraint(SpringLayout.NORTH, finalLabel, 15,
-						SpringLayout.NORTH, this.getContentPane());
-				String buttonName = finalGame.getMatch().getPlayerOne()
-						.getName()
-						+ " vs "
-						+ finalGame.getMatch().getPlayerTwo().getName();
-				buttonToGame.put(buttonName, finalGame);
-
-				JButton button = new JButton(buttonName);
-				button.addKeyListener(focusChanger);
-				button.addMouseListener(new ButtonClickListener(finalGame));
-				button.addActionListener(new ButtonListener());
-				add(button);
-
-				layout.putConstraint(SpringLayout.WEST, button, 10,
-						SpringLayout.WEST, this.getContentPane());
-				layout.putConstraint(SpringLayout.NORTH, button, 15,
-						SpringLayout.SOUTH, finalLabel);
-			} else {
-				JLabel winnerLabel = new JLabel("Congratulations "
-						+ finalGame.getMatch().getWinner().getName() + "!");
-				winnerLabel.setFont(new Font(null, Font.BOLD, 30));
-				add(winnerLabel);
-				layout.putConstraint(SpringLayout.WEST, winnerLabel, 10,
-						SpringLayout.WEST, this.getContentPane());
-				layout.putConstraint(SpringLayout.NORTH, winnerLabel, 15,
-						SpringLayout.NORTH, this.getContentPane());
-
-				JButton close = new JButton("Close");
-				close.addKeyListener(focusChanger);
-				close.addActionListener(new ActionListener() {
-
-					public void actionPerformed(ActionEvent event) {
-						playingPlayers.addAll(eligablePlayers);
-						WriteExcel write = new WriteExcel();
-						write.writeWeekly(playingPlayers);
-						dispose();
-					}
-				});
-
-				add(close);
-				layout.putConstraint(SpringLayout.WEST, close, 30,
-						SpringLayout.WEST, this.getContentPane());
-				layout.putConstraint(SpringLayout.NORTH, close, 30,
-						SpringLayout.SOUTH, winnerLabel);
-
+		if (tournament.getfinalGame().getMatch().getPlayerOne() != null
+				&& tournament.getfinalGame().getMatch().getPlayerTwo() != null) {
+			boolean playFinal = true;
+			if (!aSidePlayableGames.isEmpty() || !bSidePlayableGames.isEmpty()) {
+				MessageDialog md = new MessageDialog(
+						"The final game is ready to play but +"
+								+ " there are still unplayed games. Proceed anyway?",
+						true);
+				if (!md.isConfirmed()) {
+					playFinal = false;
+				}
 			}
+			if (playFinal) {
+				Node<Match> finalGame = tournament.getfinalGame();
+				if (!tournament.isFinished()) {
+					JLabel finalLabel = new JLabel("FINAL GAME");
+					finalLabel.setFont(new Font(null, Font.BOLD, 30));
+					add(finalLabel);
+					layout.putConstraint(SpringLayout.WEST, finalLabel, 10,
+							SpringLayout.WEST, this.getContentPane());
+					layout.putConstraint(SpringLayout.NORTH, finalLabel, 15,
+							SpringLayout.NORTH, this.getContentPane());
+					String buttonName = finalGame.getMatch().getPlayerOne()
+							.getName()
+							+ " vs "
+							+ finalGame.getMatch().getPlayerTwo().getName();
+					buttonToGame.put(buttonName, finalGame);
 
-		} else {
-			int ASideSize = (int) Math.pow(2, rounds) + 1;
-			JPanel mainPanel = new JPanel();
-			// mainPanel.setPreferredSize(new Dimension(1600, 800));
-			mainPanel.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
-			mainPanel.setLayout(layout);
-			mainPanel.setPreferredSize(new Dimension(BUTTON_WIDTH
-					* (rounds + 8), BUTTON_HEIGHT * (2 * ASideSize)));
-			setLayout(new BorderLayout());
-			JScrollPane scroll = new JScrollPane(mainPanel,
-					JScrollPane.VERTICAL_SCROLLBAR_ALWAYS,
-					JScrollPane.HORIZONTAL_SCROLLBAR_ALWAYS);
-			scroll.getVerticalScrollBar().setUnitIncrement(15);
-			add(scroll, BorderLayout.CENTER);
-			JLabel aSideLabel = new JLabel("A Side Games");
-			aSideLabel.setFont(new Font(null, Font.BOLD, 20));
-			mainPanel.add(aSideLabel);
-			layout.putConstraint(SpringLayout.WEST, aSideLabel, 10,
-					SpringLayout.WEST, this.getContentPane());
-			layout.putConstraint(SpringLayout.NORTH, aSideLabel, 15,
-					SpringLayout.NORTH, this.getContentPane());
+					JButton button = new JButton(buttonName);
+					button.addKeyListener(focusChanger);
+					button.addMouseListener(new ButtonClickListener(finalGame));
+					button.addActionListener(new ButtonListener());
+					add(button);
 
-			JPanel aPanel = new JPanel();
-			aPanel.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
-			aPanel.setLayout(new GridLayout(1, rounds, 5, 0));
-			layout.putConstraint(SpringLayout.WEST, aPanel, 5,
-					SpringLayout.WEST, this.getContentPane());
-			layout.putConstraint(SpringLayout.NORTH, aPanel, 20,
-					SpringLayout.NORTH, aSideLabel);
-			mainPanel.add(aPanel);
-			int spacing = 0;
-			for (int x = 1; x <= rounds; x++) {
-				List<Node<Match>> aSideRoundGames = tournament.getaSide()
-						.getRound(x);
-				JPanel panel = new JPanel();
-				panel.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
-				panel.setLayout(new GridLayout(ASideSize, 1, 5, 5));
-				aPanel.add(panel);
-				if (x > 1) {
-					spacing += Math.pow(2, (x - 2));
-				}
-				for (int y = 0; y < spacing; y++) {
-					panel.add(new JLabel(""));
-				}
-				Iterator<Node<Match>> aSideIterator = aSideRoundGames
-						.iterator();
-				Node<Match> game = null;
-				while (aSideIterator.hasNext()) {
-					game = aSideIterator.next();
-					String buttonName = "";
-					Match match = game.getMatch();
-					if (match.getPlayerOne() != null
-							|| match.getPlayerTwo() != null) {
-						if (match.getPlayerOne() != null) {
-							if (match.getPlayerTwo() != null) {
-								if (match.getWinner() != null) {
-									buttonName = "<u>"
-											+ match.getWinner().getName()
-													.toUpperCase() + "</u> ("
-											+ match.getWinnerScore()
-											+ ") beats "
-											+ match.getLoser().getName() + "("
-											+ match.getLoserScore() + ")";
-								} else {
-									buttonName = match.getPlayerOne().getName()
-											+ " vs "
-											+ match.getPlayerTwo().getName();
-								}
-							} else {
-								buttonName = match.getPlayerOne().getName();
-							}
-						} else if (match.getPlayerTwo() != null) {
-							buttonName = match.getPlayerTwo().getName();
+					layout.putConstraint(SpringLayout.WEST, button, 10,
+							SpringLayout.WEST, this.getContentPane());
+					layout.putConstraint(SpringLayout.NORTH, button, 15,
+							SpringLayout.SOUTH, finalLabel);
+				} else {
+					JLabel winnerLabel = new JLabel("Congratulations "
+							+ finalGame.getMatch().getWinner().getName() + "!");
+					winnerLabel.setFont(new Font(null, Font.BOLD, 30));
+					add(winnerLabel);
+					layout.putConstraint(SpringLayout.WEST, winnerLabel, 10,
+							SpringLayout.WEST, this.getContentPane());
+					layout.putConstraint(SpringLayout.NORTH, winnerLabel, 15,
+							SpringLayout.NORTH, this.getContentPane());
+
+					JButton close = new JButton("Close");
+					close.addKeyListener(focusChanger);
+					close.addActionListener(new ActionListener() {
+
+						public void actionPerformed(ActionEvent event) {
+							playingPlayers.addAll(eligablePlayers);
+							WriteExcel write = new WriteExcel();
+							write.writeWeekly(playingPlayers);
+							dispose();
 						}
-						if (match.getByePlayer() == null) {
-							buttonName = "<html><p>Round " + game.getRound()
-									+ " : " + buttonName + "</p></html>";
-							if (match.getWinner() == null) {
-								buttonToGame.put(buttonName, game);
-								JButton button = new JButton(buttonName);
-								button.setPreferredSize(buttonDimension);
-								button.addMouseListener(new ButtonClickListener(
-										game));
-								button.addKeyListener(focusChanger);
-								button.addActionListener(new ButtonListener());
-								panel.add(button);
+					});
+
+					add(close);
+					layout.putConstraint(SpringLayout.WEST, close, 30,
+							SpringLayout.WEST, this.getContentPane());
+					layout.putConstraint(SpringLayout.NORTH, close, 30,
+							SpringLayout.SOUTH, winnerLabel);
+
+				}
+				setTitle("Final Game");
+				setSize(WIDTH / 4, HEIGHT / 4);
+				return;
+			}
+		}
+
+		int ASideSize = (int) Math.pow(2, rounds) + 1;
+		JPanel mainPanel = new JPanel();
+		// mainPanel.setPreferredSize(new Dimension(1600, 800));
+		mainPanel.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
+		mainPanel.setLayout(layout);
+		mainPanel.setPreferredSize(new Dimension(BUTTON_WIDTH * (rounds + 8),
+				BUTTON_HEIGHT * (2 * ASideSize)));
+		setLayout(new BorderLayout());
+		JScrollPane scroll = new JScrollPane(mainPanel,
+				JScrollPane.VERTICAL_SCROLLBAR_ALWAYS,
+				JScrollPane.HORIZONTAL_SCROLLBAR_ALWAYS);
+		scroll.getVerticalScrollBar().setUnitIncrement(15);
+		add(scroll, BorderLayout.CENTER);
+		JLabel aSideLabel = new JLabel("A Side Games");
+		aSideLabel.setFont(new Font(null, Font.BOLD, 20));
+		mainPanel.add(aSideLabel);
+		layout.putConstraint(SpringLayout.WEST, aSideLabel, 10,
+				SpringLayout.WEST, this.getContentPane());
+		layout.putConstraint(SpringLayout.NORTH, aSideLabel, 15,
+				SpringLayout.NORTH, this.getContentPane());
+
+		JPanel aPanel = new JPanel();
+		aPanel.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
+		aPanel.setLayout(new GridLayout(1, rounds, 5, 0));
+		layout.putConstraint(SpringLayout.WEST, aPanel, 5, SpringLayout.WEST,
+				this.getContentPane());
+		layout.putConstraint(SpringLayout.NORTH, aPanel, 20,
+				SpringLayout.NORTH, aSideLabel);
+		mainPanel.add(aPanel);
+		int spacing = 0;
+		for (int x = 1; x <= rounds; x++) {
+			List<Node<Match>> aSideRoundGames = tournament.getaSide().getRound(
+					x);
+			JPanel panel = new JPanel();
+			panel.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
+			panel.setLayout(new GridLayout(0, 1));
+			aPanel.add(panel);
+			if (x > 1) {
+				spacing += Math.pow(2, (x - 2));
+			}
+			for (int y = 0; y < spacing; y++) {
+				panel.add(Box.createGlue());
+			}
+			Iterator<Node<Match>> aSideIterator = aSideRoundGames.iterator();
+			Node<Match> game = null;
+			while (aSideIterator.hasNext()) {
+				game = aSideIterator.next();
+				String buttonName = "";
+				Match match = game.getMatch();
+				if (match.getPlayerOne() != null
+						|| match.getPlayerTwo() != null) {
+					if (match.getPlayerOne() != null) {
+						if (match.getPlayerTwo() != null) {
+							if (match.getWinner() != null) {
+								buttonName = "<u>"
+										+ match.getWinner().getName()
+												.toUpperCase() + "</u> ("
+										+ match.getWinnerScore() + ") beats "
+										+ match.getLoser().getName() + "("
+										+ match.getLoserScore() + ")";
 							} else {
-								panel.add(new JLabel(buttonName));
+								buttonName = match.getPlayerOne().getName()
+										+ " vs "
+										+ match.getPlayerTwo().getName();
 							}
 						} else {
-							JLabel label = new JLabel(buttonName
-									+ " was given a bye");
-							panel.add(label);
+							buttonName = match.getPlayerOne().getName();
+						}
+					} else if (match.getPlayerTwo() != null) {
+						buttonName = match.getPlayerTwo().getName();
+					}
+					if (match.getByePlayer() == null) {
+						buttonName = "<html><p>Round " + game.getRound()
+								+ " : " + buttonName + "</p></html>";
+						if (match.getWinner() == null) {
+							buttonToGame.put(buttonName, game);
+							JButton button = new JButton(buttonName);
+							button.setPreferredSize(buttonDimension);
+							button.addMouseListener(new ButtonClickListener(
+									game));
+							button.addKeyListener(focusChanger);
+							button.addActionListener(new ButtonListener());
+							panel.add(button);
+						} else {
+							panel.add(new JLabel(buttonName));
 						}
 					} else {
-						JLabel label = new JLabel("Round " + game.getRound()
-								+ " : " + "No Players");
+						JLabel label = new JLabel(buttonName
+								+ " was given a bye");
 						panel.add(label);
 					}
-					if (aSideIterator.hasNext()) {
-						for (int y = 0; y < (spacing * 2 + 1); y++) {
-							JLabel label = new JLabel("");
-							label.setBackground(white);
-							panel.add(label);
-						}
+				} else {
+					JLabel label = new JLabel("Round " + game.getRound()
+							+ " : " + "No Players");
+					panel.add(label);
+				}
+				if (aSideIterator.hasNext()) {
+					for (int y = 0; y < (spacing * 2 + 1); y++) {
+						panel.add(Box.createGlue());
+					}
+				} else {
+					for (int y = 0; y < spacing; y++) {
+						panel.add(Box.createGlue());
 					}
 				}
 			}
-			JLabel bSideLabel = new JLabel("B Side Games");
-			bSideLabel.setFont(new Font(null, Font.BOLD, 20));
-			mainPanel.add(bSideLabel);
-			layout.putConstraint(SpringLayout.WEST, bSideLabel, 10,
-					SpringLayout.WEST, this.getContentPane());
-			layout.putConstraint(SpringLayout.NORTH, bSideLabel, 5,
-					SpringLayout.SOUTH, aPanel);
+		}
+		JLabel bSideLabel = new JLabel("B Side Games");
+		bSideLabel.setFont(new Font(null, Font.BOLD, 20));
+		mainPanel.add(bSideLabel);
+		layout.putConstraint(SpringLayout.WEST, bSideLabel, 10,
+				SpringLayout.WEST, this.getContentPane());
+		layout.putConstraint(SpringLayout.NORTH, bSideLabel, 5,
+				SpringLayout.SOUTH, aPanel);
 
-			JPanel bPanel = new JPanel();
-			bPanel.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
-			bPanel.setLayout(new GridLayout(1, rounds, 5, 5));
-			layout.putConstraint(SpringLayout.WEST, bPanel, 5,
-					SpringLayout.WEST, this.getContentPane());
-			layout.putConstraint(SpringLayout.NORTH, bPanel, 20,
-					SpringLayout.SOUTH, bSideLabel);
-			mainPanel.add(bPanel);
+		JPanel bPanel = new JPanel();
+		bPanel.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
+		bPanel.setLayout(new GridLayout(1, rounds, 5, 5));
+		layout.putConstraint(SpringLayout.WEST, bPanel, 5, SpringLayout.WEST,
+				this.getContentPane());
+		layout.putConstraint(SpringLayout.NORTH, bPanel, 20,
+				SpringLayout.SOUTH, bSideLabel);
+		mainPanel.add(bPanel);
 
-			spacing = 0;
-			for (int x = 1; x <= rounds; x++) {
-				List<Node<Match>> bSideRoundGames = tournament.getbSide()
-						.getRound(x);
-				Iterator<Node<Match>> bSideIterator = bSideRoundGames
-						.iterator();
+		spacing = 0;
+		for (int x = 1; x <= rounds; x++) {
+			List<Node<Match>> bSideRoundGames = tournament.getbSide().getRound(
+					x);
+			Iterator<Node<Match>> bSideIterator = bSideRoundGames.iterator();
 
-				Node<Match> game = null;
+			Node<Match> game = null;
 
-				JPanel panelOne = new JPanel();
-				panelOne.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
-				panelOne.setLayout(new GridLayout(
+			JPanel panelOne = new JPanel();
+			panelOne.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
+			panelOne.setLayout(new GridLayout((playingPlayers.size() * 3 + 1),
+					1, 5, 5));
+			bPanel.add(panelOne);
+
+			for (int y = 0; y < spacing; y++) {
+				panelOne.add(Box.createGlue());
+			}
+
+			List<Node<Match>> parentGames = new ArrayList<Node<Match>>();
+			while (bSideIterator.hasNext()) {
+				game = bSideIterator.next();
+
+				if (bSideRoundGames.contains(game.getLeftChild())) {
+					parentGames.add(game);
+
+				} else {
+
+					addToBSideGrid(game, spacing, panelOne);
+					for (int y = 0; y < (spacing * 2 + 1); y++) {
+						JLabel label = new JLabel("");
+						label.setBackground(white);
+						panelOne.add(label);
+					}
+				}
+			}
+
+			spacing += Math.pow(2, (x - 2));
+			if (x > 1) {
+
+				JPanel panelTwo = new JPanel();
+				panelTwo.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
+				panelTwo.setLayout(new GridLayout(
 						(playingPlayers.size() * 3 + 1), 1, 5, 5));
-				bPanel.add(panelOne);
+				bPanel.add(panelTwo);
 
+				if (x == rounds) {
+					// last round the spacing should be the same as
+					// the previous round
+					spacing = (spacing - 1) / 2;
+				}
 				for (int y = 0; y < spacing; y++) {
 					JLabel label = new JLabel("");
 					label.setBackground(white);
-					panelOne.add(label);
+					panelTwo.add(label);
 				}
 
-				List<Node<Match>> parentGames = new ArrayList<Node<Match>>();
-				while (bSideIterator.hasNext()) {
-					game = bSideIterator.next();
-
-					if (bSideRoundGames.contains(game.getLeftChild())) {
-						parentGames.add(game);
-
-					} else {
-
-						addToBSideGrid(game, spacing, panelOne);
-						for (int y = 0; y < (spacing * 2 + 1); y++) {
-							JLabel label = new JLabel("");
-							label.setBackground(white);
-							panelOne.add(label);
-						}
-					}
-				}
-
-				spacing += Math.pow(2, (x - 2));
-				if (x > 1) {
-
-					JPanel panelTwo = new JPanel();
-					panelTwo.setBorder(BorderFactory.createEmptyBorder(5, 5, 5,
-							5));
-					panelTwo.setLayout(new GridLayout(
-							(playingPlayers.size() * 3 + 1), 1, 5, 5));
-					bPanel.add(panelTwo);
-
-					if (x == rounds) {
-						// last round the spacing should be the same as
-						// the previous round
-						spacing = (spacing - 1) / 2;
-					}
-					for (int y = 0; y < spacing; y++) {
+				// second column of round
+				for (Node<Match> parentGame : parentGames) {
+					addToBSideGrid(parentGame, spacing, panelTwo);
+					for (int y = 0; y < (spacing * 2 + 1); y++) {
 						JLabel label = new JLabel("");
 						label.setBackground(white);
 						panelTwo.add(label);
 					}
-
-					// second column of round
-					for (Node<Match> parentGame : parentGames) {
-						addToBSideGrid(parentGame, spacing, panelTwo);
-						for (int y = 0; y < (spacing * 2 + 1); y++) {
-							JLabel label = new JLabel("");
-							label.setBackground(white);
-							panelTwo.add(label);
-						}
-					}
 				}
 			}
-			createEndPanel();
 		}
+		createEndPanel();
 		setTitle("Match Manager");
 		setSize(WIDTH, HEIGHT);
 	}
@@ -541,6 +625,9 @@ public class MainView extends JFrame implements ActionListener {
 			finish.addActionListener(new ActionListener() {
 
 				public void actionPerformed(ActionEvent event) {
+					if (type == tType.RRBN) {
+						rtournament.finish();
+					}
 					playingPlayers.addAll(eligablePlayers);
 					WriteExcel write = new WriteExcel();
 					write.writeWeekly(playingPlayers);
@@ -570,8 +657,57 @@ public class MainView extends JFrame implements ActionListener {
 
 				}
 			});
-			endPanel.add(playDoubles);
+			if (type == tType.DELIM) {
+				endPanel.add(playDoubles);
 
+				JButton revert = new JButton(
+						"<html><p>Undo Last Action</p></html>");
+
+				revert.addKeyListener(focusChanger);
+				revert.setPreferredSize(new Dimension(150, 0));
+				revert.addActionListener(new ActionListener() {
+
+					public void actionPerformed(ActionEvent event) {
+						try {
+							tournament = snapshot.revert(tournament);
+							endPanel = null; // nullifying the endPanel forces
+												// rebuild, which puts redo
+												// button
+												// on panel
+							tourneyView();
+							SwingUtilities
+									.updateComponentTreeUI(getContentPane());
+						} catch (Exception e) {
+							// do nothing if no snapshots
+						}
+					}
+				});
+				endPanel.add(revert);
+				if (snapshot.hasTwoNext()) {
+					JButton redo = new JButton(
+							"<html><p>Redo Last Action</p></html>");
+
+					redo.addKeyListener(focusChanger);
+					redo.setPreferredSize(new Dimension(150, 0));
+					redo.addActionListener(new ActionListener() {
+
+						public void actionPerformed(ActionEvent event) {
+							try {
+								tournament = snapshot.Next();
+								endPanel = null; // nullifying the endPanel
+													// forces
+													// rebuild
+								tourneyView();
+								SwingUtilities
+										.updateComponentTreeUI(getContentPane());
+							} catch (Exception e) {
+								// do nothing if no snapshots
+							}
+						}
+					});
+					endPanel.add(redo);
+				}
+			}
 			JButton insertPlayer = new JButton(
 					"<html><p>Insert a player</p></html>");
 			insertPlayer.setPreferredSize(new Dimension(150, 0));
@@ -616,6 +752,7 @@ public class MainView extends JFrame implements ActionListener {
 					submit.addActionListener(new ActionListener() {
 
 						public void actionPerformed(ActionEvent event) {
+
 							String input = players.getText();
 							String[] playerNames = input.split("\n|\\, |\\,");
 
@@ -636,7 +773,6 @@ public class MainView extends JFrame implements ActionListener {
 									insertPlayers.add(new Player(s));
 								} else {
 									insertPlayers.add(player);
-									playingPlayers.add(player);
 								}
 							}
 							if (!newPlayers.isEmpty()) {
@@ -646,7 +782,28 @@ public class MainView extends JFrame implements ActionListener {
 								npd.setAlwaysOnTop(true);
 								return;
 							}
+							playingPlayers.addAll(insertPlayers);
 
+							// branch from here and exit
+							if (type == tType.RRBN) {
+								rtournament.insertPlayers(insertPlayers);
+								finalDialog.dispose();
+								rRobinView();
+								SwingUtilities
+										.updateComponentTreeUI(getContentPane());
+								return;
+							}
+							tournament.setPlayerSet(playingPlayers);
+							snapshot.addSnapshot(tournament);
+							double availableSpots = tournament.getRound(
+									tournament.getaSide(), 1).size()
+									* 2 - playingPlayers.size();
+							if (availableSpots < 0) {
+								snapshot.remove();
+								tournament.expandBracket();
+								this.actionPerformed(null);
+								return;
+							}
 							List<Node<Match>> aSideGameList = tournament
 									.getRound(tournament.getaSide(), 1);
 
@@ -668,43 +825,67 @@ public class MainView extends JFrame implements ActionListener {
 											.hasNext()) {
 										game = gameListIterator.next();
 										match = game.getMatch();
+
+										if ((game.getParent().getMatch()
+												.getWinner() != null) // for
+																		// case
+																		// of
+																		// expanding
+																		// bracket
+																		// with
+																		// already
+																		// played
+																		// games
+												|| (game.getMatch()
+														.getPlayerOne() != null // full
+																				// game
+												&& game.getMatch()
+														.getPlayerTwo() != null)) {
+											continue gameIterator;
+										}
 										if (!playableGames) {
 											playableGames = (match.getWinner() == null) ? true
 													: false;
 										}
 
-										if (game.getMatch().getPlayerOne() != null
-												&& game.getMatch()
-														.getPlayerTwo() != null) {
-											continue gameIterator;
-										} else if (((game.getMatch()
+										if (((game.getMatch() // Only one
+																// player
+																// in the
+																// game
 												.getPlayerOne() == null) != (game
 												.getMatch().getPlayerTwo() == null))
 												&& (game.getMatch().getWinner() == null && game
 														.getMatch()
 														.getByePlayer() == null)) {
 											insertableGames.add(game);
-										} else if (game.getMatch()
+										} else if (game.getMatch() // bye
+																	// player
 												.getByePlayer() != null) {
-											if (game.getParent()
-													.getMatch()
-													.getPlayerOne()
-													.equals(game.getMatch()
-															.getByePlayer())) {
-												game.getParent().getMatch()
-														.setPlayerOne(null);
-											} else if (game
-													.getParent()
-													.getMatch()
-													.getPlayerTwo()
-													.equals(game.getMatch()
-															.getByePlayer())) {
-												game.getParent().getMatch()
-														.setPlayerTwo(null);
+											if (game.getParent().getMatch()
+													.getPlayerOne() != null) {
+												if (game.getParent()
+														.getMatch()
+														.getPlayerOne()
+														.equals(game.getMatch()
+																.getByePlayer())) {
+													game.getParent().getMatch()
+															.setPlayerOne(null);
+												}
+											} else if (game.getParent()
+													.getMatch().getPlayerTwo() != null) {
+												if (game.getParent()
+														.getMatch()
+														.getPlayerTwo()
+														.equals(game.getMatch()
+																.getByePlayer())) {
+													game.getParent().getMatch()
+															.setPlayerTwo(null);
+												}
+												game.getMatch().setByePlayer(
+														null);
+												insertableGames.add(game);
+												// byeGames.add(game.getCousin());
 											}
-											game.getMatch().setByePlayer(null);
-											insertableGames.add(game);
-											// byeGames.add(game.getCousin());
 										}
 									}
 									if (!playableGames) {
@@ -740,7 +921,8 @@ public class MainView extends JFrame implements ActionListener {
 										if (playableGames) {
 											// if bside cousins have bye
 											// players,
-											// room for inserted players, else
+											// room for inserted players,
+											// else
 											// cannot insert players
 											tournament.expandBracket();
 											this.actionPerformed(null);
@@ -794,11 +976,58 @@ public class MainView extends JFrame implements ActionListener {
 				}
 			});
 			endPanel.add(insertPlayer);
-			for (int y = 0; y < 6; y++) {
+			if (type == tType.RRBN) {
+				JButton nextRound = new JButton(
+						"<html><p>Generate Next Round</p></html>");
+				nextRound.setPreferredSize(new Dimension(150, 0));
+				nextRound.addKeyListener(focusChanger);
+				nextRound.addActionListener(new ActionListener() {
+
+					public void actionPerformed(ActionEvent event) {
+						rtournament.reGenGames();
+						rRobinView();
+						SwingUtilities.updateComponentTreeUI(getContentPane());
+					}
+				});
+				endPanel.add(nextRound);
+			}
+			int blanks = 0;
+			if (type == tType.DELIM) {
+				blanks = (snapshot.hasTwoNext()) ? 4 : 5;
+			} else
+				blanks = 3;
+			for (int y = 0; y < blanks; y++) {
 				endPanel.add(new JLabel(""));
 			}
 		} else {
 			add(endPanel, BorderLayout.LINE_END);
+		}
+	}
+
+	public class RobinButtonListener implements ActionListener {
+		public void actionPerformed(ActionEvent event) {
+			Match match = rButtonToGame.get(event.getActionCommand());
+			CurrentGameDialog cgd = null;
+			try {
+				cgd = new CurrentGameDialog(match);
+				cgd.setVisible(true);
+				cgd.setAlwaysOnTop(true);
+			} catch (InvalidActivityException iae) {
+				// TODO: Error dialog
+				System.out.println(iae.getMessage());
+				iae.printStackTrace();
+				return;
+			}
+			if (cgd.wasSubmitted) {
+				if (match.getPlayerOne() == null
+						|| match.getPlayerTwo() == null) {
+					rtournament.rectifyTeams();
+				} else {
+					rtournament.finishMatch(match);
+				}
+			}
+			rRobinView();
+			SwingUtilities.updateComponentTreeUI(getContentPane());
 		}
 	}
 
@@ -807,17 +1036,28 @@ public class MainView extends JFrame implements ActionListener {
 		public void actionPerformed(ActionEvent event) {
 			Node<Match> game = buttonToGame.get(event.getActionCommand());
 			Match match = game.getMatch();
+			snapshot.addSnapshot(tournament);
+			CurrentGameDialog cgd = null;
 			try {
-				CurrentGameDialog cgd = new CurrentGameDialog(game);
+				cgd = new CurrentGameDialog(game);
 				cgd.setVisible(true);
 				cgd.setAlwaysOnTop(true);
 			} catch (InvalidActivityException iae) {
 				// TODO: Error dialog
 				System.out.println(iae.getMessage());
 				iae.printStackTrace();
+				snapshot.remove();
+				return;
 			}
-			if (match.getByePlayer() == null && match.getWinner() != null) {
+
+			if (!cgd.wasSubmitted) { // nothing happened, can break out
+				snapshot.remove();
+				return;
+
+			} else if (match.getByePlayer() == null
+					&& match.getWinner() != null) {
 				tournament.finishGame(game);
+
 			} else if (match.getByePlayer() != null) {
 				if (game == tournament.getaSide().getRoot()) {
 					tournament.getfinalGame().getMatch()
@@ -919,6 +1159,7 @@ public class MainView extends JFrame implements ActionListener {
 							}
 
 							else if (e.getSource() == doRevert) {
+								snapshot.addSnapshot(tournament);
 								if (match1 != null) {
 									if (match1.getByePlayer() == null) {
 										if (match1.getLoser().equals(
@@ -961,6 +1202,7 @@ public class MainView extends JFrame implements ActionListener {
 							popUp.show(e.getComponent(), e.getX(), e.getY());
 							return;
 						} else if (e.getSource() == doRevert) {
+							snapshot.addSnapshot(tournament);
 							if (game.getCousin() != null) {
 								cousinMatch = game.getCousin().getMatch();
 								if (match1 == null) {
@@ -990,6 +1232,7 @@ public class MainView extends JFrame implements ActionListener {
 							popUp.show(e.getComponent(), e.getX(), e.getY());
 							return;
 						} else if (e.getSource() == doRevert) {
+							snapshot.addSnapshot(tournament);
 							if (match1 != null) {
 								resetMatch(match1, game.getLeftChild()
 										.getSide());

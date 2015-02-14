@@ -20,6 +20,8 @@ public class NewPlayersDialog extends JDialog {
 
 	private static int WIDTH = 400;
 	private static int HEIGHT = 300;
+	private boolean isConfirmed;
+
 	String[] newPlayers;
 	List<String> listPlayers;
 
@@ -81,8 +83,8 @@ public class NewPlayersDialog extends JDialog {
 					TourneyNight tn = new TourneyNight();
 
 					// sets the default handicap to 8
-					tn.setBallsPocketed(24);
-					tn.setGamesPlayed(3);
+					tn.setBallsPocketed(64);
+					tn.setGamesPlayed(8);
 					p.addToWeekly(0, tn);
 					MainView.eligablePlayers.add(p);
 					MainView.playingPlayers.add(p);
@@ -101,6 +103,14 @@ public class NewPlayersDialog extends JDialog {
 		setDefaultCloseOperation(DISPOSE_ON_CLOSE);
 		setLocationRelativeTo(null);
 		setSize(WIDTH, HEIGHT);
+	}
+	
+	public boolean isConfirmed() {
+		return isConfirmed;
+	}
+
+	public void setConfirmed(boolean isConfirmed) {
+		this.isConfirmed = isConfirmed;
 	}
 
 }

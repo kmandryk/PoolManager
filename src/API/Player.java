@@ -1,20 +1,33 @@
 package API;
 
+import java.io.ObjectInputStream.GetField;
+import java.text.DecimalFormat;
 import java.util.HashMap;
 import java.util.Map;
 
+import GUI.MainView;
+import tournament.Tournament;
 import tournament.Tournament.Side;
 
 public class Player {
-
-	String name;
-	double handicap;
-	int totalPoints;
-	int gamesPlayed;
-	int rank;
-	Side side;
-	public boolean hasLeft;
 	
+	public boolean hasLeft;
+	private String name;
+	private int rank;
+	private Side side;
+	private int teamPoints;
+	private int wins;
+	private int totalGamesPlayed;
+	private Map<Integer, TourneyNight> weekly;
+	
+	public int getTeamPoints() {
+		return teamPoints;
+	}
+
+	public void setTeamPoints(int teamPoints) {
+		this.teamPoints = teamPoints;
+	}
+
 	//random string so it does not get replicated
 	public static final String DEFAULT = "fdf889sgnbfvax234cvbnjhuytqerwmfqeo,regrcde12tsevf";
 
@@ -26,8 +39,6 @@ public class Player {
 		this.side = side;
 	}
 
-	Map<Integer, TourneyNight> weekly;
-
 	public int getGamesPlayed() {
 		int week = 0;
 		int games = 0;
@@ -38,17 +49,12 @@ public class Player {
 		return games;
 	}
 
-	public void setGamesPlayed(int gamesPlayed) {
-		this.gamesPlayed = gamesPlayed;
-	}
-
 	/**
 	 * default constructor will give the player the name "default" and a
 	 * handicap of 7
 	 */
 	public Player() {
 		name = DEFAULT;
-		handicap = 7;
 		side = Side.ASIDE;
 		weekly = new HashMap<Integer, TourneyNight>();
 		for(int x = 0; x < 16; x++){
@@ -65,7 +71,6 @@ public class Player {
 	 */
 	public Player(String name) {
 		this.name = name;
-		handicap = 7;
 		side = Side.ASIDE;
 		weekly = new HashMap<Integer, TourneyNight>();
 		for(int x = 0; x < 16; x++){
@@ -75,9 +80,8 @@ public class Player {
 		}
 	}
 
-	public Player(String name, int handicap) {
+	public Player(String name, double handicap) {
 		this.name = name;
-		this.handicap = handicap;
 		side = Side.ASIDE;
 		weekly = new HashMap<Integer, TourneyNight>();
 		for(int x = 0; x < 16; x++){
@@ -98,6 +102,7 @@ public class Player {
 	public double getHandicap() {
 		int week = 0;
 		int balls = 0;
+		
 		while(weekly.get(week) != null){
 			balls += weekly.get(week).getBallsPocketed();
 			week++;
@@ -110,8 +115,9 @@ public class Player {
 		}
 	}
 	
-	public void setHandicap(double handicap){
-		this.handicap = handicap;
+	public String getHandicapString(){
+		DecimalFormat df = new DecimalFormat("#.###");
+		return df.format(getHandicap());
 	}
 
 	public int getTotalPoints() {
@@ -122,10 +128,6 @@ public class Player {
 			week++;
 		}
 		return weeklyPoints;
-	}
-
-	public void setTotalPoints(int totalPoints) {
-		this.totalPoints = totalPoints;
 	}
 
 	public Map<Integer, TourneyNight> getWeekly() {
@@ -143,10 +145,37 @@ public class Player {
 	public void setRank(int rank) {
 		this.rank = rank;
 	}
+	
+	public int getWins() {
+		return wins;
+	}
+	public void setWins(int wins) {
+		this.wins = wins;
+	}
+	
+	public static Player copyPlayer( Player player){
+		Player cPlayer = new Player(player.getName(), player.getHandicap());
+		cPlayer.setSide(player.getSide());
+		int week = 0;
+		while(player.getWeekly().get(week) != null){
+			cPlayer.weekly.put(week,TourneyNight.copy(player.getWeekly().get(week)));
+			week++;
+		}
+		if(cPlayer.weekly.get(3) == player.weekly.get(3)){
+			System.nanoTime();
+		}
+		return cPlayer;
+	}
 
 	@Override
 	public String toString() {
-		String s = getRank() + "," + getTotalPoints() + "," + getName();
+		String s = null;
+		if(MainView.type == MainView.tType.DELIM){
+			s = getRank() + "," + getTotalPoints() + "," + getName();
+		} else { 
+			double percent = (double)getWins()/getGamesPlayed();
+			s = getRank() + "," + getName() + "," + percent + "," + getWins() + "," + getTotalPoints() + "," + getTeamPoints() + "," + getHandicapString();
+		}
 		int week = 1;
 		while(weekly.get(week) != null){
 			s +="," +weekly.get(week).getTotalPoints();
@@ -156,7 +185,7 @@ public class Player {
 	}
 
 	public String toHandicapString() {
-		String s = getRank() + "," + getHandicap() + "," + getName();
+		String s = getRank() + "," + getHandicapString() + "," + getName();
 		int week = 0;
 		while(weekly.get(week) != null){
 			s += ","+ weekly.get(week).getBallsPocketed() + ","

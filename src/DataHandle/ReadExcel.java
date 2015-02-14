@@ -19,6 +19,8 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import startup.Start;
 import API.Player;
 import API.TourneyNight;
+import GUI.MainView;
+import GUI.MainView.tType;
 import GUI.MessageDialog;
 
 public class ReadExcel {
@@ -26,14 +28,20 @@ public class ReadExcel {
 	Set<Player> playerSet;
 	XSSFWorkbook workbook;
 
-	public Set<Player> read() {
+	public Set<Player> read( tType type) {
 		FileInputStream file;
 		try {
 			file = new FileInputStream(Start.file);
 			// Create Workbook instance holding reference to .xlsx file
 			workbook = new XSSFWorkbook(file);
-			readWeekly();
-			readHandicap();
+			if(type == tType.DELIM){
+				readWeekly();
+				readHandicap();
+			}
+			else if(type == tType.RRBN){
+				readWeekly();
+				readHandicap();
+			}
 			file.close();
 			Start.fileWasRead = true;
 		} catch (FileNotFoundException e) {
@@ -61,18 +69,20 @@ public class ReadExcel {
 			XSSFSheet sheet = workbook.getSheetAt(0);
 
 			playerSet = new HashSet<Player>();
-
+			int namePosition = (MainView.type == MainView.tType.DELIM) ? 2 : 1;
+			int weekStartPosition = (MainView.type == MainView.tType.DELIM) ? 2 : 6;
 			int rowStart = 2;
-			int rowEnd = Math.min(100, sheet.getLastRowNum());
+			int rowEnd = Math.min(100, sheet.getPhysicalNumberOfRows());
 
 			for (int rowNum = rowStart; rowNum <= rowEnd; rowNum++) {
 				XSSFRow row = sheet.getRow(rowNum);
 				if (row != null) {
-					int lastColumn = Math.max(row.getLastCellNum(), 3);
+					int lastColumn = Math
+							.max(row.getPhysicalNumberOfCells(), 3);
 
 					Player player = new Player();
 					int week = 0;
-					for (int cn = 2; cn < lastColumn; cn++) {
+					for (int cn = 1; cn < lastColumn; cn++) {
 
 						XSSFCell cell = row.getCell(cn,
 								Row.RETURN_BLANK_AS_NULL);
@@ -98,7 +108,7 @@ public class ReadExcel {
 							switch (cell.getCellType()) {
 
 							case Cell.CELL_TYPE_NUMERIC:
-								if (cell.getColumnIndex() > 2) {
+								if (cell.getColumnIndex() > weekStartPosition) {
 									week += 1;
 									TourneyNight tn = new TourneyNight(
 											(int) cell.getNumericCellValue());
@@ -107,10 +117,12 @@ public class ReadExcel {
 											.getBoldweight() == Font.BOLDWEIGHT_BOLD) {
 										tn.setWinner(true);
 									}
+								} else if(cell.getColumnIndex() == 4 && MainView.type == MainView.tType.RRBN){
+									player.setTeamPoints((int)cell.getNumericCellValue());
 								}
 								break;
 							case Cell.CELL_TYPE_STRING:
-								if (cell.getColumnIndex() == 2
+								if (cell.getColumnIndex() == namePosition
 										&& cell.getRowIndex() != 1) {
 									player.setName(cell.getStringCellValue());
 								}
@@ -144,19 +156,24 @@ public class ReadExcel {
 			System.out.println("PLAYER DATA\n\n");
 
 			int rowStart = 2;
-			int rowEnd = Math.min(100, sheet.getLastRowNum());
+			int rowEnd = Math.min(100, sheet.getPhysicalNumberOfRows());
 
 			// while (rowIterator.hasNext()) {
 			// row = rowIterator.next();
 			for (int rowNum = rowStart; rowNum <= rowEnd; rowNum++) {
+					
 				XSSFRow row = sheet.getRow(rowNum);
-
-				int lastColumn = Math.max(row.getLastCellNum(), 3);
-
+				if(row == null) {
+					continue;
+				}
+				
+				int lastColumn = Math.max(row.getPhysicalNumberOfCells(), 3);
+				
+				
 				Player player = null;
 				XSSFCell cell = row.getCell(2, Row.RETURN_BLANK_AS_NULL);
 				if (cell == null) {
-					break;
+					continue;
 				}
 				for (Player p : playerSet) {
 					if (cell.getStringCellValue().matches(p.getName())) {
@@ -165,12 +182,9 @@ public class ReadExcel {
 					}
 				}
 
-				double handicap = 8;
-
 				if (player == null) {
-					break;
+					continue;
 				}
-				player.setHandicap(handicap);
 
 				int week = -1;
 				for (int cn = 3; cn < lastColumn; cn++) {
@@ -217,8 +231,7 @@ public class ReadExcel {
 				}
 
 				playerSet.add(player);
-				System.out.println(player + "  HANDICAP: "
-						+ player.getHandicap());
+				System.out.println(player);
 			}
 		} catch (Exception e) {
 			e.printStackTrace();

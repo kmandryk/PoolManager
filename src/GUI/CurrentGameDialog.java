@@ -31,6 +31,7 @@ import API.TournamentTree.Node;
 public class CurrentGameDialog extends JDialog {
 
 	JButton submit;
+	boolean wasSubmitted = false;
 	JTextArea playerOneScore;
 	String playerOneName;
 	String playerTwoName;
@@ -61,6 +62,156 @@ public class CurrentGameDialog extends JDialog {
 		} else {
 			initGameUI();
 		}
+	}
+	
+	public CurrentGameDialog(Match match) throws InvalidActivityException {
+		this.currentMatch = match;
+		if(currentMatch.getPlayerOne() != null && currentMatch.getPlayerTwo() != null){
+			initRobinGameUI();
+		}
+	}
+
+	private void initRobinGameUI() {
+		setLayout(new BoxLayout(getContentPane(), BoxLayout.Y_AXIS));
+		GridLayout gl = new GridLayout(3, 3);
+		gl.setHgap(5);
+		gl.setVgap(5);
+		playerOneName = currentMatch.getPlayerOne().getName();
+		playerTwoName = currentMatch.getPlayerTwo().getName();
+		JLabel playerOne = new JLabel();
+		JLabel playerTwo = new JLabel();
+		playerOne.setText(playerOneName);
+		playerTwo.setText(playerTwoName);
+		if (playerOne.getMouseListeners().length == 0) {
+			playerOne.addMouseListener(new GameClickListener(currentMatch
+					.getPlayerOne(),currentMatch
+					.getPlayerTwo()));
+		}
+		playerOne.setHorizontalAlignment(SwingConstants.CENTER);
+		if (playerTwo.getMouseListeners().length == 0) {
+			playerTwo.addMouseListener(new GameClickListener(currentMatch
+					.getPlayerOne(),currentMatch
+					.getPlayerTwo()));
+		}
+		playerTwo.setHorizontalAlignment(SwingConstants.CENTER);
+
+		JPanel panel = new JPanel();
+		panel.setLayout(gl);
+		panel.setPreferredSize(new Dimension(WIDTH, HEIGHT / 2));
+		panel.add(playerOne);
+		panel.add(playerTwo);
+
+		add(panel);
+		KeyListener focusChanger = new KeyListener(this);
+		playerOneScore = new JTextArea();
+		playerOneScore.setBorder(BorderFactory.createLineBorder(new Color(32,
+				23, 23), 3));
+		playerOneScore.addKeyListener(focusChanger);
+		playerTwoScore = new JTextArea();
+		playerTwoScore.setBorder(BorderFactory.createLineBorder(new Color(32,
+				23, 23), 3));
+		playerTwoScore.addKeyListener(focusChanger);
+		panel.add(playerOneScore);
+		panel.add(playerTwoScore);
+
+		add(Box.createRigidArea(new Dimension(0, 10)));
+		submit = new JButton("Submit final Score");
+		submit.setPreferredSize(new Dimension(30, 30));
+		submit.setHorizontalAlignment(SwingConstants.CENTER);
+		getRootPane().setDefaultButton(submit);
+		submit.addKeyListener(focusChanger);
+		submit.addActionListener(new ActionListener() {
+
+			public void actionPerformed(ActionEvent event) {
+
+				if (playerOneScore.getText().isEmpty()) {
+					playerOneScore.setText(playerOneName + "'s score?");
+					return;
+				}
+				if (playerTwoScore.getText().isEmpty()) {
+					playerTwoScore.setText(playerTwoName + "'s score?");
+					return;
+				}
+				int pts = 0;
+				int pos = 0;
+				try {
+					pos = Integer.parseInt(playerOneScore.getText());
+				} catch (NumberFormatException e) {
+					playerOneScore.setText("Please enter a number");
+					return;
+				}
+				try {
+					pts = Integer.parseInt(playerTwoScore.getText());
+				} catch (NumberFormatException e) {
+					playerTwoScore.setText("Please enter a number");
+					return;
+				}
+				Integer.parseInt(playerTwoScore.getText());
+
+				if (pos != 10 && pts != 10) {
+					if (pos != 11 && pts != 11) {	//	break and run case
+						submit.setText("One player must score 10");
+						return;
+					}
+				}
+				if (pos == 10 && pts == 10) {
+					submit.setText(" Only one player can score 10");
+					return;
+				}
+				if (pos < 0 || pts < 0 || pos > 10 || pts > 10) {
+					if (pos != 11 && pts != 0) {
+						submit.setText("Scores must be between 0 and 10");
+						return;
+					}
+				}
+				if (pos == 10 && pts > 7) {
+					submit.setText(playerTwoName
+							+ "cannot have a higher score than 7");
+					return;
+				} else if (pts == 10 && pos > 7) {
+					submit.setText(playerOneName
+							+ "cannot have a higher score than 7");
+					return;
+				}
+				Player winner = null;
+				Player loser = null;
+					if (pos > pts) {
+						winner = currentMatch.getPlayerOne();
+						loser = currentMatch.getPlayerTwo();
+						currentMatch.setWinner(winner);
+						currentMatch.setWinnerScore(pos);
+						currentMatch.setLoser(loser);
+						currentMatch.setLoserScore(pts);
+					} else if (pts > pos) {
+						winner = currentMatch.getPlayerTwo();
+						loser = currentMatch.getPlayerOne();
+						currentMatch.setWinner(winner);
+						currentMatch.setWinnerScore(pts);
+						currentMatch.setLoser(loser);
+						currentMatch.setLoserScore(pos);
+					}
+				
+
+				System.out.println("\n***FINISHED GAME***\n\n"
+						+ winner.getName() + "  "
+						+ currentMatch.getWinnerScore() + loser.getName()
+						+ "  " + currentMatch.getLoserScore());
+				
+				wasSubmitted = true;
+				dispose();
+			}
+		});
+		submit.setAlignmentX(0.5f);
+		add(submit);
+
+		setTitle("Current Game: " + currentMatch.getPlayerOne().getName()
+				+ " vs " + currentMatch.getPlayerTwo().getName());
+		setSize(new Dimension(WIDTH, HEIGHT));
+		pack();
+		setDefaultCloseOperation(DISPOSE_ON_CLOSE);
+		setLocationRelativeTo(null);
+
+		setModalityType(ModalityType.APPLICATION_MODAL);
 	}
 
 	private void initNonGameUI(final Player p) {
@@ -126,6 +277,7 @@ public class CurrentGameDialog extends JDialog {
 						} else if (switcher.equals(siblingMatch.getPlayerTwo())) {
 							siblingMatch.setPlayerTwo(null);
 						}
+						wasSubmitted = true;
 						dispose();
 					}
 				});
@@ -138,6 +290,7 @@ public class CurrentGameDialog extends JDialog {
 					public void actionPerformed(ActionEvent event) {
 
 						currentMatch.setByePlayer(p);
+						wasSubmitted = true;
 						dispose();
 					}
 				});
@@ -156,6 +309,7 @@ public class CurrentGameDialog extends JDialog {
 					public void actionPerformed(ActionEvent event) {
 
 						currentMatch.setByePlayer(p);
+						wasSubmitted = true;
 						dispose();
 					}
 				});
@@ -186,6 +340,7 @@ public class CurrentGameDialog extends JDialog {
 				public void actionPerformed(ActionEvent event) {
 
 					currentMatch.setByePlayer(p);
+					wasSubmitted = true;
 					dispose();
 				}
 			});
@@ -240,6 +395,7 @@ public class CurrentGameDialog extends JDialog {
 				List<String> newPlayers = new ArrayList<String>();
 				Player player = null;
 				for (String s : playerNames) {
+					wasSubmitted = true;	//if no names, this loop will not be entered, nothing submitted 
 					boolean exists = false;
 					for (Player p : MainView.eligablePlayers) {
 						if (p.getName().equalsIgnoreCase(s)) {
@@ -383,7 +539,7 @@ public class CurrentGameDialog extends JDialog {
 				Integer.parseInt(playerTwoScore.getText());
 
 				if (pos != 10 && pts != 10) {
-					if (pos != 11 && pts != 0) {
+					if (pos != 11 && pts != 11) {	//	break and run case
 						submit.setText("One player must score 10");
 						return;
 					}
@@ -410,13 +566,6 @@ public class CurrentGameDialog extends JDialog {
 				Player winner = null;
 				Player loser = null;
 				if (MainView.doubles && currentGame.getSide() == Side.BSIDE) {
-					// winner = new Player(currentMatch.getPlayerOne() + " and "
-					// + currentMatch.getPlayerTwo());
-					// loser = new Player(siblingMatch
-					// .getPlayerOne()
-					// + " and "
-					// + siblingMatch
-					// .getPlayerTwo());
 					if (pos > pts) {
 						winner = currentMatch.getPlayerOne();
 						loser = siblingMatch.getPlayerOne();
@@ -467,6 +616,8 @@ public class CurrentGameDialog extends JDialog {
 						+ winner.getName() + "  "
 						+ currentMatch.getWinnerScore() + loser.getName()
 						+ "  " + currentMatch.getLoserScore());
+				
+				wasSubmitted = true;
 				dispose();
 			}
 		});
@@ -486,17 +637,13 @@ public class CurrentGameDialog extends JDialog {
 	private class GameClickListener extends ClickListener {
 		JMenuItem removePlayerOne;
 		JMenuItem removePlayerTwo;
-		Player playerOne;
-		Player playerTwo;
 
 		protected GameClickListener(Player playerOne) {
-			this.playerOne = playerOne;
 			removePlayerOne = new JMenuItem("remove " + playerOne.getName());
 			removePlayerOne.addMouseListener(this);
 		}
 
 		protected GameClickListener(Player playerOne, Player playerTwo) {
-			this.playerOne = playerOne;
 			removePlayerOne = new JMenuItem("remove " + playerOne.getName());
 			removePlayerTwo = new JMenuItem("remove " + playerTwo.getName());
 			removePlayerOne.addMouseListener(this);
@@ -522,22 +669,16 @@ public class CurrentGameDialog extends JDialog {
 				}
 				popUp.show(e.getComponent(), e.getX(), e.getY());
 			} else if (e.getSource() == removePlayerOne) {
-				remove(playerOne);
+				currentMatch.getPlayerOne().hasLeft = true;
+				currentMatch.setPlayerOne(null);
+				wasSubmitted = true;
 				dispose();
 			} else if (e.getSource() == removePlayerTwo) {
-				remove(playerTwo);
+				currentMatch.getPlayerTwo().hasLeft = true;
+				currentMatch.setPlayerTwo(null);
+				wasSubmitted = true;
 				dispose();
 			}
-		}
-
-		private void remove(Player player) {
-			if (player.equals(currentMatch.getPlayerOne())) {
-				currentMatch.setPlayerOne(null);
-			} else if (player.equals(currentMatch.getPlayerTwo())) {
-				currentMatch.setPlayerTwo(null);
-			}
-			player.hasLeft = true;
-			MainView.playingPlayers.remove(player);
 		}
 	}
 }

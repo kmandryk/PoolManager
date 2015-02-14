@@ -62,4 +62,14 @@ public class TourneyNight {
 		this.extraPoints = extraPoints;
 	}
 	
+	public static TourneyNight copy(TourneyNight tn){
+		TourneyNight ntn = new TourneyNight(tn.getTotalPoints());
+		ntn.setBallsPocketed(tn.getBallsPocketed());
+		ntn.setBasicPoints(tn.getBasicPoints());
+		ntn.setExtraPoints(tn.getExtraPoints());
+		ntn.setGamesPlayed(tn.getGamesPlayed());
+		ntn.setHandicapPoints(tn.getHandicapPoints());
+		ntn.setWinner(tn.isWinner());
+		return ntn;
+	}
 }

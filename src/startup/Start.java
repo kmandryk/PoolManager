@@ -21,7 +21,7 @@ public class Start {
 //		} catch (NumberFormatException nfe){
 //			input = console.readLine("Please enter a valid number\n");
 //		}}
-		int thisWeek = 3;
+		int thisWeek = 5;
 //		file = new File("/home/kaegan/development/documents/Summer2014.xlsx");
 		MainView view = new MainView(thisWeek);
 		

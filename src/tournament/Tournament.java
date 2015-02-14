@@ -3,6 +3,7 @@ package tournament;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
@@ -21,7 +22,6 @@ public class Tournament {
 	TournamentTree bSide;
 	List<Node<Match>> bSideRound;
 	List<Node<Match>> transferableBSideRound;
-	List<Match> currentGames;
 	Set<Player> playerSet;
 	boolean finished;
 	public static int thisWeek;
@@ -38,7 +38,6 @@ public class Tournament {
 		bSide = new TournamentTree(Side.BSIDE);
 		finalGame.setLeftChild(aSide.getRoot());
 		finalGame.setRightChild(bSide.getRoot());
-		currentGames = new ArrayList<Match>();
 		Tournament.thisWeek = thisWeek;
 		this.playerSet = playerList;
 		int numberOfPlayers = playerList.size();
@@ -360,8 +359,9 @@ public class Tournament {
 			loserNight.setGamesPlayed(loserNight.getGamesPlayed() + 1);
 			loserNight.setBasicPoints(loserNight.getBasicPoints() + 1);
 
+			// Break and Run
 			if (match.getWinnerScore() == 11) {
-				winnerNight.setBasicPoints(winnerNight.getBasicPoints() + 1);
+				winnerNight.setBasicPoints(winnerNight.getBasicPoints() + 2);
 			}
 
 			if (game.getSide() == Side.ASIDE) {
@@ -547,6 +547,85 @@ public class Tournament {
 		}
 	}
 
+	public static void copy(Tournament original, Tournament copy) {
+		TournamentTree oa = original.getaSide(); // original aside
+		TournamentTree ob = original.getbSide(); // orignal bside
+		TournamentTree ca = copy.getaSide(); // copy aside
+		TournamentTree cb = copy.getbSide(); // copy bside
+
+		// Copy final Game (only need to copy match)
+		copy.finalGame.setMatch(Match.copyMatch(original.getfinalGame()
+				.getMatch()));
+
+		copy.playerSet = new HashSet<Player>();
+		// Copy player data
+		for (Player p : original.playerSet) {
+			copy.playerSet.add(Player.copyPlayer(p));
+		}
+		// Traverse sides and copy matches
+		traverseCopy(oa.getRoot(), ca.getRoot(), copy.playerSet);
+		traverseCopy(ob.getRoot(), cb.getRoot(), copy.playerSet);
+
+	}
+
+	private static void traverseCopy(Node<Match> o, Node<Match> c,
+			Set<Player> pSet) {
+		c.setMatch(Match.copyMatch(o.getMatch())); // copy match
+		c.setWasDoubles(o.isWasDoubles());
+		Match m = c.getMatch();
+
+		Player p1 = null;
+		Player p2 = null;
+		if (m.getPlayerOne() != null) {
+			for (Player p : pSet) {
+				if (p.getName().equals(m.getPlayerOne().getName())) {
+					m.setPlayerOne(p);
+					p1 = p;
+					break;
+				}
+			}
+		}
+		if (m.getPlayerTwo() != null) {
+			for (Player p : pSet) {
+				if (p.getName().equals(m.getPlayerTwo().getName())) {
+					m.setPlayerTwo(p);
+					p2 = p;
+					break;
+				}
+			}
+		}
+		/** change player references **/
+		
+		// if byeplayer != null there is only 1 player.
+		// instead of comparisons, which ever player
+		// is not null must be the bye player
+		if (m.getByePlayer() != null) {		
+			if(p1 != null){
+				m.setByePlayer(p1);
+			} else
+				m.setByePlayer(p2);
+		}
+		if (m.getLoser() != null) {
+			if (p1.getName().equals(m.getLoser().getName())) {
+				m.setLoser(p1);
+			} else
+				m.setLoser(p2);
+		}
+		if (m.getWinner() != null) {
+			if (p1.getName().equals(m.getWinner().getName())) {
+				m.setWinner(p1);
+			} else
+				m.setWinner(p2);
+		}
+
+		if (o.getLeftChild() != null) {
+			traverseCopy(o.getLeftChild(), c.getLeftChild(), pSet);
+		}
+		if (o.getRightChild() != null) {
+			traverseCopy(o.getRightChild(), c.getRightChild(), pSet);
+		}
+	}
+
 	/**
 	 * in the case where aSide is full and the tournament size needs to be
 	 * increased, this method should be called to expand the size of the
@@ -594,6 +673,9 @@ public class Tournament {
 
 	public Set<Player> getPlayerSet() {
 		return playerSet;
+	}
+	public void setPlayerSet(Set<Player> pSet) {
+		this.playerSet = pSet;
 	}
 
 	public TournamentTree getaSide() {

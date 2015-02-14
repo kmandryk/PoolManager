@@ -36,8 +36,8 @@ public class WriteExcel {
 		Collections.sort(rankedList, new Comparator<Player>() {
 			@Override
 			public int compare(Player a, Player b) {
-				return a.getTotalPoints() >= b.getTotalPoints() ? -1
-						: a == b ? 0 : 1;
+				return a.getTotalPoints() > b.getTotalPoints() ? -1 : a
+						.getTotalPoints() == b.getTotalPoints() ? 0 : 1;
 			}
 		});
 		int rank = 1;
@@ -52,15 +52,24 @@ public class WriteExcel {
 
 		data.put("1", new Object[] { "",
 				"University of Victoria Tuesday Tourney hosted by Felicita's" });
-		data.put("2", new Object[] { "Rank", "Points", "Player", "W1pts",
-				"W2pts", "W3pts", "W4pts", "W5pts", "W6pts", "W7pts", "W8pts",
-				"W9pts", "W10pts", "W11pts", "W12pts", "W13pts", "W14pts" });
+		if (MainView.type == MainView.tType.DELIM) {
+			data.put("2", new Object[] { "Rank", "Points", "Player", "W1pts",
+					"W2pts", "W3pts", "W4pts", "W5pts", "W6pts", "W7pts",
+					"W8pts", "W9pts", "W10pts", "W11pts", "W12pts", "W13pts",
+					"W14pts" });
+		} else {
+			data.put("2", new Object[] { "Rank", "Player", "Win %",
+					"Games Played", "Points", "Team Points", "Handicap",
+					"W1pts", "W2pts", "W3pts", "W4pts", "W5pts", "W6pts",
+					"W7pts", "W8pts", "W9pts", "W10pts", "W11pts", "W12pts",
+					"W13pts", "W14pts" });
+		}
 		for (Player p : playerSet) {
 			String s = p.toString();
 			data.put(String.valueOf(p.getRank() + 2), s.split(","));
 
 		}
-		
+
 		int index = data.size();
 		index += 5;
 		data.put(
@@ -91,6 +100,7 @@ public class WriteExcel {
 			}
 		});
 		int rownum = 0;
+		int offset = (MainView.type == MainView.tType.DELIM) ? 3 : 7;
 		for (String key : keyList) {
 			Row row = sheet.createRow(rownum++);
 			Object[] objArr = data.get(key);
@@ -110,17 +120,20 @@ public class WriteExcel {
 					if (player != null) {
 						XSSFFont font = workbook.createFont();
 						XSSFCellStyle style = workbook.createCellStyle();
-						if (player.getWeekly().get(cellNum - 3).isWinner()) {
+						if ((cellNum - offset) >= 0) {
+							if (player.getWeekly().get(cellNum - offset)
+									.isWinner()) {
 
-							font.setBold(true);
-							font.setBoldweight(Font.BOLDWEIGHT_BOLD);
-							if(winnerCell != null){
-								style.setFont(font);
-								winnerCell.setCellStyle(style);
+								font.setBold(true);
+								font.setBoldweight(Font.BOLDWEIGHT_BOLD);
+								if (winnerCell != null) {
+									style.setFont(font);
+									winnerCell.setCellStyle(style);
+								}
+							} else {
+								font.setBold(false);
+								font.setBoldweight(Font.BOLDWEIGHT_NORMAL);
 							}
-						} else {
-							font.setBold(false);
-							font.setBoldweight(Font.BOLDWEIGHT_NORMAL);
 						}
 						style.setFont(font);
 						cell.setCellStyle(style);
@@ -173,7 +186,6 @@ public class WriteExcel {
 
 		}
 
-		
 		// Iterate over data and write to sheet
 		Set<String> keyset = data.keySet();
 		List<String> keyList = new ArrayList<String>();
